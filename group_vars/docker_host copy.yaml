@@ -1,0 +1,111 @@
+# geerlingguy.docker
+docker_users: "{{ docker_user }}"
+
+# geerlingguy.security
+security_ssh_password_authentication: "yes"
+security_ssh_allowed_users:
+  - "{{ user }}"
+security_autoupdate_reboot: true
+security_autoupdate_mail_to: "hodgesd@gmail.com"
+
+# geerlingguy.docker
+pip_install_packages:
+  - name: docker
+
+# ironicbadger.docker_compose_generator
+global_env_vars:
+  - "PUID=1000"
+  - "PGID=1000"
+appdata_path: /home/hodgesd/config
+docker_compose_generator_output_path: /home/hodgesd/config
+
+containers:
+  - service_name: portainer
+    active: true
+    image: portainer/portainer-ce
+    ports:
+      - "9000:9000"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ appdata_path }}/portainer/data:/data"
+    restart_policy: always
+  - service_name: nextcloud
+    active: false
+    image: lscr.io/linuxserver/nextcloud:latest
+    environment:
+      - PUID="1000"
+      - PGID="1000"
+    volumes:
+      - "{{ appdata_path }}/nextcloud/config:/config"
+      - "{{ appdata_path }}/nextcloud/data:/data"
+    ports:
+      - 443:443
+    restart: unless-stopped
+  - service_name: traefik
+    active: true
+    image: traefik
+    security_opt:
+      - no-new-privileges:true
+    # networks:
+    #   - proxy
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - "{{ appdata_path }}/traefik/data/traefik.yml:/traefik.yml:ro"
+      - "{{ appdata_path }}/traefik/data/acme.json:/acme.json"
+      - "{{ appdata_path }}/traefik/data/config.yml:/config.yml:ro"
+      - "{{ appdata_path }}/traefik/config:/etc/traefik"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=http"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.{{ domain_me }}`)"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users={{ user }}:{{ traefik_password }}"
+      - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.traefik.middlewares=traefik-https-redirect"
+      - "traefik.http.routers.traefik-secure.entrypoints=https"
+      - "traefik.http.routers.traefik-secure.rule=Host(`traefik.{{ domain_me }}`)"
+      - "traefik.http.routers.traefik-secure.middlewares=traefik-auth"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik-secure.tls.domains[0].main={{ domain_me }}"
+      - "traefik.http.routers.traefik-secure.tls.domains[0].sans=*.{{ domain_me }}"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+      # - "traefik.enable=true"
+      # - "traefik.http.routers.dashboard.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
+      # - "traefik.http.routers.dashboard.entrypoints=traefik"
+      # - "traefik.http.routers.dashboard.service=api@internal"
+    restart: unless-stopped
+    environment:
+      - CLOUDFLARE_EMAIL={{ email_address }}
+      - "CLOUDFLARE_API_KEY={{ CLOUDFLARE_API_KEY }}"
+  - service_name: abs
+    active: true
+    image: advplyr/audiobookshelf
+    labels:
+      - "traefik.http.routers.audiobookshelf.rule=Host(`abs.m.{{ local_domain }}`)"
+    volumes:
+      - "{{ appdata_path }}/audiobooks/library:/audiobooks"
+      - "{{ appdata_path }}/audiobooks/podcasts:/podcasts"
+      - "{{ appdata_path }}/audiobookshelf/metadata:/metadata"
+      - "{{ appdata_path }}/audiobookshelf/config:/config"
+    ports:
+      - 13378:80
+    restart: unless-stopped
+  - service_name: librespeed
+    active: false
+    image: linuxserver/librespeed
+    ports:
+      - 8008:80
+    labels:
+      - "traefik.http.routers.librespeed.rule=Host(`speedtest.m.{{ local_domain }}`)"
+    environment:
+      - MODE=standalone
+      - TELEMETRY=true
+      - "PASSWORD={{ librespeed_password }}"
+    include_global_env_vars: true
+    restart: unless-stopped

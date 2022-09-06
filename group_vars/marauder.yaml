@@ -1,0 +1,77 @@
+---
+ntp_timezone: America/Chicago
+local_domain: "marauder.{{ domain_me }}"
+PUID: 501
+PGID: 20
+
+# ironicbadger.bash-aliases (formerly ferrarimarco.bash-aliases)
+bash_aliases_file: /Users/derrickhodges/.bash_profile
+bash_aliases:
+  - { alias: "dtail", command: "docker logs -tf --tail='50' " }
+  - { alias: "dstop", command: "docker stop `docker ps -aq`" }
+  - { alias: "dcp", command: "docker-compose -f ~/docker-compose.yml " }
+  - { alias: "dprune", command: "docker image prune" }
+  - { alias: "dprunesys", command: "docker system prune --all" }
+  - {
+      alias: "dtop",
+      command: "docker run --name ctop  -it --rm -v /var/run/docker.sock:/var/run/docker.sock quay.io/vektorlab/ctop",
+    }
+  - { alias: "appdata", command: "cd /volume2/appdata" }
+
+# ironicbadger.docker_compose_generator
+global_env_vars:
+  - "PUID=501"
+  - "PGID=20"
+appdata_path: /Users/derrickhodges/config
+docker_compose_generator_output_path: /Users/derrickhodges/code/ansible/infra
+
+containers:
+  - service_name: nginxtest
+    active: true
+    image: nginx
+    ports:
+      - "80:80"
+    restart: unless-stopped
+  - service_name: nginxtest2
+    active: true
+    image: nginx
+    ports:
+      - "804:80"
+    restart: unless-stopped
+  - service_name: portainer
+    active: true
+    image: portainer/portainer-ce
+    ports:
+      - "9000:9000"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ appdata_path }}portainer/data:/data"
+    restart_policy: always
+  - service_name: librespeed
+    active: true
+    image: adolfintel/speedtest
+    ports:
+      - 8008:80
+    environment:
+      - MODE=standalone
+      - TELEMETRY=true
+      - PASSWORD=tulanite
+    restart: unless-stopped
+  - service_name: nextcloud
+    active: true
+    image: lscr.io/linuxserver/nextcloud:latest
+    environment:
+      - PUID="{{ PUID }}"
+      - PGID="{{ PGID }}"
+      - TZ="{{ ntp_timezone }}"
+    volumes:
+      - "{{ appdata_path }}nextcloud/config:/config"
+      - "{{ appdata_path }}/nextcloud/data:/data"
+    ports:
+      - 443:443
+    restart: unless-stopped
+  - service_name: plex
+    active: true
+    image: linuxserver/plex:1.27.2
+    restart: unless-stopped

@@ -1,0 +1,91 @@
+# geerlingguy.docker
+docker_users: "{{ docker_user }}"
+
+# geerlingguy.security
+security_ssh_password_authentication: "yes"
+security_ssh_allowed_users:
+  - "{{ user }}"
+security_autoupdate_reboot: true
+security_autoupdate_mail_to: "{{ email_address }}"
+
+# geerlingguy.docker
+pip_install_packages:
+  - name: docker
+
+# ironicbadger.docker_compose_generator
+global_env_vars:
+  - "PUID=1000"
+  - "PGID=1000"
+main_gid: "20"
+main_uid: "501"
+appdata_path: "/home/{{ user }}/config"
+code_path: "/home/{{ user }}/code"
+docker_compose_generator_output_path: "/home/{{  user  }}/config"
+
+containers:
+  - service_name: reverse-proxy
+    active: true
+    image: traefik:v2.8
+    command: 
+    - "--log.level=debug"
+    - "--api.insecure=true" # Enables web UI
+    - "--providers.docker=true" # Tells Traefik to listen to docker
+    - "--entrypoints.web.address=:80"
+    - "--entrypoints.websecure.address=:443"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Web UI
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
+  - service_name: portainer
+    active: true
+    image: portainer/portainer-ce
+    ports:
+      - "9000:9000"
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "{{ appdata_path }}/portainer/data:/data"
+    restart_policy: always
+  - service_name: whoami
+    # A container that exposes an API to show its IP address
+    active: true
+    image: traefik/whoami
+    labels:
+      - "traefik.http.routers.whoami.rule=Host(`whoami.{{ local_domain }}`)"
+  - service_name: abs
+    active: true
+    image: advplyr/audiobookshelf
+    volumes:
+      - "{{ appdata_path }}/audiobooks/library:/audiobooks"
+      - "{{ appdata_path }}/audiobooks/podcasts:/podcasts"
+      - "{{ appdata_path }}/audiobookshelf/metadata:/metadata"
+      - "{{ appdata_path }}/audiobookshelf/config:/config"
+    restart: unless-stopped
+    labels:
+      - "traefik.http.routers.audiobookshelf.rule=Host(`abs.{{ local_domain }}`)"
+  ###
+  - service_name: librespeed
+    active: true
+    image: adolfintel/speedtest
+    environment:
+      - MODE=standalone
+      - TELEMETRY=true
+      - PASSWORD={{ librespeed_password }}
+    restart: unless-stopped
+    labels:
+      - "traefik.http.routers.librespeed.rule=Host(`librespeed.{{ local_domain }}`)"
+  ###
+  - service_name: homer
+    active: true
+    image: b4bz/homer
+    user: "1000:1000"
+    volumes:
+      - "{{ appdata_path }}/homer:/www/assets"
+    restart: unless-stopped
+    labels:
+      # - traefik.enable=true
+      - "traefik.http.routers.homer.rule=Host(`home.{{ local_domain }}`)"
+      # - traefik.http.routers.homer.tls.certresolver=cloudflare
+      #- traefik.http.services.homer.loadbalancer.server.port=80
