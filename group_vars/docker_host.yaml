@@ -1,3 +1,9 @@
+# Proxmox Host: Dual Intel Xeon, E-XXXX VX, 128GB RAM, 500 GB SSD
+# Proxmox VM: 4 vCPU, 8GB RAM, 100GB HDD
+
+LOCAL_IPS: "127.0.0.1/32,10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
+CLOUDFLARE_IPS: "173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0"
+
 # geerlingguy.docker
 docker_users: "{{ docker_user }}"
 
@@ -27,17 +33,71 @@ containers:
     active: true
     image: traefik:v2.8
     command: 
-    - "--log.level=debug"
-    - "--api.insecure=true" # Enables web UI
+    - "--log.level=debug" #
+    - "--log.filepath={{ appdata_path }}/logs/traefik.log"
+    - "--log.level=INFO" # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+    - "--accessLog=true"
+    - "--accessLog.filePath=/logs/access.log"
+    - "--accessLog.bufferingSize=100" # Configuring a buffer of 100 lines
+    - "--accessLog.filters.statusCodes=204-299,400-499,500-599"
+    - "--api=true"
+    - "--api.dashboard=true" 
+    - "--entrypoints.https.forwardedHeaders.trustedIPs={{ CLOUDFLARE_IPS }},{{ LOCAL_IPS }}" # https://docs.traefik.io/https/acme/#forwarded-headers
+    # - "--api.insecure=true" # Enables web UI
     - "--providers.docker=true" # Tells Traefik to listen to docker
-    - "--entrypoints.web.address=:80"
-    - "--entrypoints.websecure.address=:443"
+    - "--entrypoints.http.address=:80"
+    - "--entrypoints.https.address=:443" 
+    - "--entryPoints.traefik.address=:8080"
+    # - --providers.docker.endpoint=tcp://socket-proxy:2375 #
+    - "--entrypoints.https.http.tls.certresolver=dns-cloudflare"
+    - "--entrypoints.https.http.tls.domains[0].main={{ local_domain }}"
+    - "--entrypoints.https.http.tls.domains[0].sans=*.{{ local_domain }}"
+    - "--certificatesResolvers.dns-cloudflare.acme.email={{ email_address }}"
+    - "--certificatesResolvers.dns-cloudflare.acme.storage={{ appdata_path }}/traefik/acme.json"
+    - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare"
+    - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
+    - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90" # To delay DNS check and reduce LE hitrate  
+    - "--providers.docker.exposedByDefault=false"
     ports:
       - "80:80"
       - "443:443"
       - "8080:8080" # Web UI
+    environment:
+      - "CLOUDFLARE_EMAIL={{ email_address }}"
+      - "CLOUDFLARE_API_KEY={{ CLOUDFLARE_API_KEY }}"
+      - "TZ={{ ntp_timezone }}"
+      - "HTPASSWD_FILE={{ traefik_password }}"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
+    labels:
+      - "traefik.enable=true"
+      # HTTP-to-HTTPS Redirect
+      - "traefik.http.routers.http-catchall.entrypoints=http" 
+      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)" 
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https" 
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" #
+      # HTTP Routers
+      - "traefik.http.routers.traefik-rtr.entrypoints=https"
+      - "traefik.http.routers.traefik-rtr.rule=Host(`traefik.{{ local_domain }}`)"
+      - "traefik.http.routers.traefik-rtr.tls=true" # Some people had 404s without this
+      #- "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].main={{ local_domain }}"
+      - "traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.{{ local_domain }}"
+      - "traefik.http.middlewares.test-auth.basicauth.users={{ user }}:{{ traefik_password }}"
+      # - "traefik.http.routers.traefik-rtr.tls.domains[1].main=$DOMAINNAME2" # Pulls main cert for second domain
+      # - "traefik.http.routers.traefik-rtr.tls.domains[1].sans=*.$DOMAINNAME2" # Pulls wildcard cert for second domain
+      ## Services - API
+      - "traefik.http.routers.traefik-rtr.service=api@internal" #
+      ## Healthcheck/ping
+      #- "traefik.http.routers.ping.rule=Host(`traefik.$DOMAINNAME_CLOUD_SERVER`) && Path(`/ping`)"
+      #- "traefik.http.routers.ping.tls=true"
+      #- "traefik.http.routers.ping.service=ping@internal"
+      ## Middlewares
+      #- "traefik.http.routers.traefik-rtr.middlewares=chain-no-auth@file" # For No Authentication
+      #- "traefik.http.routers.traefik-rtr.middlewares=chain-auth-basic@file" # For Basic HTTP Authentication
+      # - "traefik.http.routers.traefik-rtr.middlewares=chain-oauth@file" # For Google OAuth
+      #- "traefik.http.routers.traefik-rtr.middlewares=chain-authelia@file" # For Authelia Authentication
   - service_name: portainer
     active: true
     image: portainer/portainer-ce
@@ -75,6 +135,10 @@ containers:
       - PASSWORD={{ librespeed_password }}
     restart: unless-stopped
     labels:
+      # - "traefik.http.routers.librespeed.rule=Host(`librespeed.{{ local_domain }}`)"
+      - "traefik.enable=true"
+      ## HTTP Routers
+      - "traefik.http.routers.librespeed.entrypoints=https"
       - "traefik.http.routers.librespeed.rule=Host(`librespeed.{{ local_domain }}`)"
   ###
   - service_name: homer
@@ -88,4 +152,4 @@ containers:
       # - traefik.enable=true
       - "traefik.http.routers.homer.rule=Host(`home.{{ local_domain }}`)"
       # - traefik.http.routers.homer.tls.certresolver=cloudflare
-      #- traefik.http.services.homer.loadbalancer.server.port=80
+      # - traefik.http.services.homer.loadbalancer.server.port=80
