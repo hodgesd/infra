@@ -67,21 +67,20 @@ containers:
       - "CLOUDFLARE_API_KEY={{ CLOUDFLARE_API_KEY }}"
       - "TZ={{ ntp_timezone }}"
       - "HTPASSWD_FILE={{ traefik_password }}"
-
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
     labels:
       - "traefik.enable=true"
       # HTTP-to-HTTPS Redirect
       - "traefik.http.routers.http-catchall.entrypoints=http" 
-      - "traefik.http.routers.http-catchall.rule=HostRegexp(`{host:.+}`)" 
+      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)" 
       - "traefik.http.routers.http-catchall.middlewares=redirect-to-https" 
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" #
       # HTTP Routers
       - "traefik.http.routers.traefik-rtr.entrypoints=https"
       - "traefik.http.routers.traefik-rtr.rule=Host(`traefik.{{ local_domain }}`)"
       - "traefik.http.routers.traefik-rtr.tls=true" # Some people had 404s without this
-      #- "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
+      - "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
       - "traefik.http.routers.traefik-rtr.tls.domains[0].main={{ local_domain }}"
       - "traefik.http.routers.traefik-rtr.tls.domains[0].sans=*.{{ local_domain }}"
       - "traefik.http.middlewares.test-auth.basicauth.users={{ user }}:{{ traefik_password }}"
@@ -113,7 +112,14 @@ containers:
     active: true
     image: traefik/whoami
     labels:
-      - "traefik.http.routers.whoami.rule=Host(`whoami.{{ local_domain }}`)"
+      - "traefik.enable=true"
+      ## HTTP Routers
+      # - "traefik.http.routers.whoami-rtr.entrypoints=https"
+      - "traefik.http.routers.whoami-rtr.rule=Host(`whoami.{{ local_domain }}`)"
+      # - "traefik.http.routers.whoami-rtr.tls=true" # Some people had 404s without this
+      # - "traefik.http.routers.whoami.rule=Host(`whoami.{{ local_domain }}`)"
+      # - "traefik.http.routers.whoami-rtr.service=whoami-svc"  
+      # - "traefik.http.services.whoami-svc.loadbalancer.server.port=80" 
   - service_name: abs
     active: true
     image: advplyr/audiobookshelf
@@ -124,6 +130,7 @@ containers:
       - "{{ appdata_path }}/audiobookshelf/config:/config"
     restart: unless-stopped
     labels:
+      - "traefik.enable=true"
       - "traefik.http.routers.audiobookshelf.rule=Host(`abs.{{ local_domain }}`)"
   ###
   - service_name: librespeed
@@ -138,7 +145,7 @@ containers:
       # - "traefik.http.routers.librespeed.rule=Host(`librespeed.{{ local_domain }}`)"
       - "traefik.enable=true"
       ## HTTP Routers
-      - "traefik.http.routers.librespeed.entrypoints=https"
+      # - "traefik.http.routers.librespeed.entrypoints=https"
       - "traefik.http.routers.librespeed.rule=Host(`librespeed.{{ local_domain }}`)"
   ###
   - service_name: homer
@@ -150,6 +157,7 @@ containers:
     restart: unless-stopped
     labels:
       # - traefik.enable=true
+      - "traefik.enable=true"
       - "traefik.http.routers.homer.rule=Host(`home.{{ local_domain }}`)"
       # - traefik.http.routers.homer.tls.certresolver=cloudflare
       # - traefik.http.services.homer.loadbalancer.server.port=80
