@@ -41,23 +41,23 @@ containers:
     - "--accessLog.filters.statusCodes=204-299,400-499,500-599"
     - "--api=true"
     - "--api.dashboard=true" 
-    - "--entrypoints.https.forwardedHeaders.trustedIPs={{ CLOUDFLARE_IPS }},{{ LOCAL_IPS }}" # https://docs.traefik.io/https/acme/#forwarded-headers
     # - "--api.insecure=true" # Enables web UI
     - "--providers.docker=true" # Tells Traefik to listen to docker
+    - "--providers.docker.exposedByDefault=true"
     - "--entrypoints.http.address=:80"
     - "--entrypoints.https.address=:443" 
     - "--entryPoints.traefik.address=:8080"
+    - "--entrypoints.http.forwardedHeaders.trustedIPs={{ CLOUDFLARE_IPS }},{{ LOCAL_IPS }}" # https://docs.traefik.io/https/acme/#forwarded-headers
     # - --providers.docker.endpoint=tcp://socket-proxy:2375 #
     - "--entrypoints.https.http.tls.certresolver=dns-cloudflare"
     - "--entrypoints.https.http.tls.domains[0].main={{ local_domain }}"
     - "--entrypoints.https.http.tls.domains[0].sans=*.{{ local_domain }}"
-    - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
-    - "--certificatesResolvers.dns-cloudflare.acme.email={{ email_address }}"
-    - "--certificatesResolvers.dns-cloudflare.acme.storage={{ appdata_path }}/traefik/acme.json"
+    - "--certificatesresolvers.dns-cloudflare.acme.dnschallenge=true"
     - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare"
+    - "--certificatesResolvers.dns-cloudflare.acme.email=hodgesd@gmail.com"
+    - "--certificatesResolvers.dns-cloudflare.acme.storage={{ appdata_path }}/traefik/acme.json"
     - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
-    - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90" # To delay DNS check and reduce LE hitrate  
-    - "--providers.docker.exposedByDefault=false"
+    # - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90" # To delay DNS check and reduce LE hitrate  
     ports:
       - "80:80"
       - "443:443"
@@ -68,16 +68,17 @@ containers:
       - "TZ={{ ntp_timezone }}"
       - "HTPASSWD_FILE={{ traefik_password }}"
     volumes:
+      - "{{ appdata_path }}/traefik:/etc/traefik"
       - /var/run/docker.sock:/var/run/docker.sock # So that Traefik can listen to the Docker events
     labels:
       - "traefik.enable=true"
       # HTTP-to-HTTPS Redirect
-      - "traefik.http.routers.http-catchall.entrypoints=http" 
-      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)" 
-      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https" 
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" #
+      # - "traefik.http.routers.http-catchall.entrypoints=http" 
+      # - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)" 
+      # - "traefik.http.routers.http-catchall.middlewares=redirect-to-https" 
+      # - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https" #
       # HTTP Routers
-      - "traefik.http.routers.traefik-rtr.entrypoints=https"
+      # - "traefik.http.routers.traefik-rtr.entrypoints=https"
       - "traefik.http.routers.traefik-rtr.rule=Host(`traefik.{{ local_domain }}`)"
       - "traefik.http.routers.traefik-rtr.tls=true" # Some people had 404s without this
       - "traefik.http.routers.traefik-rtr.tls.certresolver=dns-cloudflare" # Comment out this line after first run of traefik to force the use of wildcard certs
@@ -115,11 +116,16 @@ containers:
       - "traefik.enable=true"
       ## HTTP Routers
       # - "traefik.http.routers.whoami-rtr.entrypoints=https"
-      - "traefik.http.routers.whoami-rtr.rule=Host(`whoami.{{ local_domain }}`)"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.{{ local_domain }}`)"
+      
       # - "traefik.http.routers.whoami-rtr.tls=true" # Some people had 404s without this
       # - "traefik.http.routers.whoami.rule=Host(`whoami.{{ local_domain }}`)"
       # - "traefik.http.routers.whoami-rtr.service=whoami-svc"  
       # - "traefik.http.services.whoami-svc.loadbalancer.server.port=80" 
+      # - "traefik.http.routers.whoami.entrypoints=https"
+      - "traefik.http.routers.whoami.tls.certresolver=dns-cloudflare"
+      # - "traefik.http.routers.whoami.middlewares=test-auth"
+      # - "traefik.http.middlewares.test-auth.basicauth.users={{ user }}:{{ traefik_password }}"
   - service_name: abs
     active: true
     image: advplyr/audiobookshelf
@@ -132,6 +138,8 @@ containers:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.audiobookshelf.rule=Host(`abs.{{ local_domain }}`)"
+      # - "traefik.http.routers.audiobookshelf.middlewares=test-auth"
+      # - "traefik.http.middlewares.test-auth.basicauth.users={{ user }}:{{ traefik_password }}"
   ###
   - service_name: librespeed
     active: true
@@ -161,3 +169,168 @@ containers:
       - "traefik.http.routers.homer.rule=Host(`home.{{ local_domain }}`)"
       # - traefik.http.routers.homer.tls.certresolver=cloudflare
       # - traefik.http.services.homer.loadbalancer.server.port=80
+  ###
+  - service_name: changedetect
+    active: true
+    image: dgtlmoon/changedetection.io
+    labels:
+      - "traefik.http.routers.change.rule=Host(`change.m.{{ local_domain }}`)"
+      - traefik.http.services.change.loadbalancer.server.port=5000
+    volumes:
+      - "{{ appdata_path }}/changedetect:/datastore"
+    restart: unless-stopped
+  ###
+  - service_name: dozzle
+    active: true
+    image: amir20/dozzle
+    labels:
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.m.{{ local_domain }}`)"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+  ###
+  - service_name: jellyfin
+    active: true
+    image: jellyfin/jellyfin
+    network_mode: host
+    devices:
+      - /dev/dri:/dev/dri
+    labels:
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.m.{{ local_domain }}`)"
+      - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+    volumes:
+      - "{{ appdata_path }}/jellyfin:/config"
+      # - "{{ morpheus_main_storage_path }}:/data"
+      - "{{ appdata_path }}/jellyfin:/data"
+    environment:
+      - "JELLYFIN_PublishedServerUrl=jellyfin.m.{{ local_domain }}"
+    include_global_env_vars: true
+    restart: unless-stopped
+  ###
+  - service_name: mealie
+    active: true
+    image: hkotel/mealie:v0.5.1
+    labels:
+      - traefik.http.routers.mealie.rule=Host(`mealie.m.{{ local_domain }}`)
+    environment:
+      - DB_TYPE=sqlite
+    volumes:
+      - "{{ appdata_path }}/mealie:/app/data"
+    restart: unless-stopped  
+    ###
+  - service_name: smokeping
+    active: true
+    image: linuxserver/smokeping
+    volumes:
+      - "{{ appdata_path }}/smokeping/config:/config"
+      - "{{ appdata_path }}/smokeping/data:/data"
+    labels:
+      - "traefik.http.routers.smokeping.rule=Host(`smokeping.m.{{ local_domain }}`)"
+    include_global_env_vars: true
+    restart: unless-stopped
+    ###
+  - service_name: sonarr
+    active: true
+    image: linuxserver/sonarr
+    depends_on:
+      - nzbget
+    labels:
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.m.{{ local_domain }}`)"
+      # - traefik.http.routers.sonarr.middlewares=authelia@docker
+    volumes:
+      - "{{ appdata_path }}/sonarr:/config"
+      - "{{ appdata_path }}/complete/tv:/downloads/complete/tv"
+      - "{{ appdata_path }}/tv:/tv"
+      # - "{{ download_path }}/complete/tv:/downloads/complete/tv"
+      # - /mnt/jbod/tv:/tv
+    restart: unless-stopped
+    include_global_env_vars: true
+  ###
+  - service_name: radarr
+    active: true
+    image: linuxserver/radarr
+    volumes:
+      - "{{ appdata_path }}/radarr:/config"
+      - "{{ appdata_path }}/complete/movies:/downloads/complete/movies"
+      # - "{{ download_path }}/complete/movies:/downloads/complete/movies"
+      # - /mnt/jbod/movies:/movies
+    labels:
+      - "traefik.http.routers.radarr.rule=Host(`radarr.m.{{ local_domain }}`)"
+      # - traefik.http.routers.radarr.middlewares=authelia@docker
+    restart: unless-stopped
+    include_global_env_vars: true
+  ###
+  - service_name: lidarr
+    active: true
+    image: linuxserver/lidarr
+    volumes:
+      - "{{ appdata_path }}/lidarr:/config"
+      - "{{ appdata_path }}/complete/music:/downloads/complete/music"
+      - "{{ appdata_path }}/intermediate/music:/downloads-amd"
+      # - "{{ download_path }}/complete/music:/downloads/complete/music"
+      # - "{{ download_path }}/intermediate/music:/downloads-amd"
+      # - /mnt/storage/flac/flac:/music
+    labels:
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.m.{{ local_domain }}`)"
+      # - traefik.http.routers.lidarr.middlewares=authelia@docker
+    restart: unless-stopped
+    include_global_env_vars: true
+  ###
+  - service_name: tiddlywiki
+    active: true
+    image: mazzolino/tiddlywiki
+    labels:
+      - "traefik.http.routers.tiddlywiki.rule=Host(`wiki.m.wd.{{ domain_me }}`)"
+      - traefik.http.services.tiddlywiki.loadbalancer.server.port=8080
+    environment:
+      - USERNAME={{ user }}
+      - PASSWORD={{ tiddlywiki_password }}
+    volumes:
+      - "{{ appdata_path }}/tiddlywiki:/var/lib/tiddlywiki"
+    restart: unless-stopped
+
+  ###
+  - service_name: nzbget
+    active: true
+    image: linuxserver/nzbget
+    labels:
+      - "traefik.http.routers.nzbget.rule=Host(`nzbget.m.{{ local_domain }}`)"
+      # - traefik.http.routers.nzbget.middlewares=authelia@docker
+      - "traefik.http.routers.nzbgetapi.rule=Host(`nzbgetapi.m.{{ local_domain }}`)"
+    volumes:
+      - "{{ appdata_path }}/nzbget/config:/config"
+      - "{{ appdata_path }}:/downloads"
+      # - "{{ download_path }}:/downloads"
+    restart: unless-stopped
+    include_global_env_vars: true  
+  ###
+  - service_name: prowlarr
+    active: true
+    image: linuxserver/prowlarr:develop
+    labels:
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.m.{{ local_domain }}`)"
+      # - traefik.http.routers.prowlarr.middlewares=authelia@docker
+    volumes:
+      - "{{ appdata_path }}/prowlarr:/config"
+    include_global_env_vars: true
+    restart: unless-stopped
+  # template for docker-compose services # IronicBadger
+  #
+  ###
+  # - service_name:
+  #   active: false
+  #   image:
+  #   container_name: #optional - only required if diff to service_name
+  #   labels:
+  #     - traefik.enable=true
+  #     - "traefik.http.routers.XXXXXXXX.rule=Host(`abs.m.{{ local_domain }}`)"
+  #     #- traefik.http.routers.XXXXXXX.entrypoints=websecure
+  #     #- traefik.http.routers.XXXXXXX.tls.certresolver=cloudflare
+  #     - traefik.http.services.XXXXXXX.loadbalancer.server.port=80
+  #     #- traefik.http.routers.XXXXXXX.middlewares=authelia@docker
+  #   volumes:
+  #     - "{{ appdata_path }}/app:/config"
+  #   environment:
+  #     -
+  #   include_global_env_vars: #optional - defaults to false
+  #   restart: unless-stopped
