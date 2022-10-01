@@ -33,9 +33,8 @@ containers:
     active: true
     image: traefik:v2.8
     command: 
-    - "--log.level=debug" #
     - "--log.filepath={{ appdata_path }}/logs/traefik.log"
-    - "--log.level=INFO" # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+    - "--log.level=DEBUG" # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
     - "--accessLog=true"
     - "--accessLog.filePath=/logs/access.log"
     - "--accessLog.bufferingSize=100" # Configuring a buffer of 100 lines
@@ -52,6 +51,7 @@ containers:
     - "--entrypoints.https.http.tls.certresolver=dns-cloudflare"
     - "--entrypoints.https.http.tls.domains[0].main={{ local_domain }}"
     - "--entrypoints.https.http.tls.domains[0].sans=*.{{ local_domain }}"
+    - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
     - "--certificatesResolvers.dns-cloudflare.acme.email={{ email_address }}"
     - "--certificatesResolvers.dns-cloudflare.acme.storage={{ appdata_path }}/traefik/acme.json"
     - "--certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare"
