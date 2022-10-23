@@ -4,6 +4,12 @@ marauder:
 docker_host:
 	ansible-playbook -b run.yaml --limit docker_host --ask-become-pass
 
+docker:
+	ansible-playbook -b run.yaml --limit docker --ask-become-pass
+
+web:
+	ansible-playbook -b run.yaml --limit web --ask-become-pass
+
 cdocker_host:
 	ansible-playbook run.yaml --limit docker_host --tags compose
 
@@ -23,7 +29,7 @@ encrypt:
 	ansible-vault encrypt vars/vault.yaml
 
 venv:
-	source venv/bin/activate
+	source /Users/derrickhodges/code/ansible/venv/bin/activate
 
 gitinit:
 	@./git-init.sh
