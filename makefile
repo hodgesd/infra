@@ -10,6 +10,9 @@ docker:
 web:
 	ansible-playbook -b run.yaml --limit web --ask-become-pass
 
+dev:
+	ansible-playbook -b run.yaml --limit dev --ask-become-pass
+
 cdocker_host:
 	ansible-playbook run.yaml --limit docker_host --tags compose
 

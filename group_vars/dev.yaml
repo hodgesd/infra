@@ -1,0 +1,16 @@
+# Proxmox Host: Dual Intel Xeon, E-XXXX VX, 128GB RAM, 500 GB SSD
+# Proxmox VM: 4 vCPU, 8GB RAM, 100GB HDD
+
+# geerlingguy.security
+security_ssh_password_authentication: "yes"
+security_ssh_allowed_users:
+  - "{{ user }}"
+security_autoupdate_reboot: true
+security_autoupdate_mail_to: "{{ email_address }}"
+# gantsign.oh-my-zsh
+# oh_my_zsh_theme: powerlevel10k
+# oh_my_zsh_plugins:
+#   - git
+#   - thefuck
+#   - zsh-autosuggestions
+

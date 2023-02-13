@@ -8,7 +8,7 @@
     # - role: fastparrot.yourls
 
   tasks:
-    - name: Deploy Containters
+    - name: Deploy Containers
       community.docker.docker_compose:
         project_src: "{{ docker_compose_generator_output_path }}"
         state: present
@@ -23,7 +23,7 @@
     - role: gantsign.oh-my-zsh
       users:
         - username: hodgesd
-        
+
     - role: ironicbadger.docker_compose_generator
       tags: compose
 
@@ -37,7 +37,7 @@
     - role: gantsign.oh-my-zsh
       users:
         - username: hodgesd
-        
+
     - role: ironicbadger.docker_compose_generator
       tags: compose
 
@@ -45,7 +45,7 @@
     - name: Install docker-compose python package
       ansible.builtin.pip:
         name: docker-compose
-    - name: Deploy Containters
+    - name: Deploy Containers
       tags: compose
       community.docker.docker_compose:
         project_src: "{{ docker_compose_generator_output_path }}"
@@ -57,3 +57,9 @@
   roles:
     - role: geerlingguy.security
     - role: nginxinc.nginx
+
+- hosts: dev
+  vars_files:
+    - "vars/vault.yaml"
+  roles:
+    - role: geerlingguy.security
