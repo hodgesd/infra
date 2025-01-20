@@ -1,10 +1,12 @@
 roles:
-  - src: ironicbadger.docker_compose_generator
-  - src: ironicbadger.bash_aliases
-  - src: fastparrot.yourls
-  - src: geerlingguy.docker
-  - src: geerlingguy.pip
-  - src: geerlingguy.security
-  - src: gantsign.oh-my-zsh
+  - name: elliotweiser.osx-command-line-tools
+#  - name: ironicbadger.docker_compose_generator
+#  - name: ironicbadger.bash_aliases
+#  - name: fastparrot.yourls
+#  - name: geerlingguy.docker
+#  - name: geerlingguy.pip
+#  - name: geerlingguy.security
+#  - name: gantsign.oh-my-zsh
+
 collections:
-  - name: community.docker
+  - name: geerlingguy.mac

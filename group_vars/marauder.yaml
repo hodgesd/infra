@@ -1,29 +1,12 @@
 ---
 ntp_timezone: America/Chicago
-local_domain: "marauder.{{ domain_me }}"
-PUID: 501
-PGID: 20
-
-# ironicbadger.bash-aliases (formerly ferrarimarco.bash-aliases)
-bash_aliases_file: /Users/derrickhodges/.bash_profile
-bash_aliases:
-  - { alias: "dtail", command: "docker logs -tf --tail='50' " }
-  - { alias: "dstop", command: "docker stop `docker ps -aq`" }
-  - { alias: "dcp", command: "docker-compose -f ~/docker-compose.yml " }
-  - { alias: "dprune", command: "docker image prune" }
-  - { alias: "dprunesys", command: "docker system prune --all" }
-  - {
-      alias: "dtop",
-      command: "docker run --name ctop  -it --rm -v /var/run/docker.sock:/var/run/docker.sock quay.io/vektorlab/ctop",
-    }
-  - { alias: "appdata", command: "cd /volume2/appdata" }
 
 # ironicbadger.docker_compose_generator
 global_env_vars:
   - "PUID=501"
   - "PGID=20"
-appdata_path: /Users/derrickhodges/config
-docker_compose_generator_output_path: /Users/derrickhodges/code/ansible/infra
+appdata_path: /Users/hodgesd/config
+docker_compose_generator_output_path: /Users/hodgesd/code/ansible/infra
 
 containers:
   - service_name: nginxtest

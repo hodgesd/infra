@@ -1,46 +1,16 @@
 ---
 # generic settings
-main_username: derrickhodges
+main_username: hodgesd
 main_groupname: "{{ main_username }}"
 main_uid: "501"
 main_gid: "{{ main_uid }}"
 
 # ferrarimarco.bash-aliases
 bash_aliases:
-  - { alias: "dtail", command: "docker logs -tf --tail='50' " }
-  - { alias: "dstop", command: "docker stop `docker ps -aq`" }
-  - { alias: "drm", command: "docker rm `docker ps -aq`" }
-  - { alias: "dcp", command: "docker-compose -f ~/docker-compose.yml " }
-  - {
-      alias: "dcporph",
-      command: "docker-compose -f ~/docker-compose.yml --remove-orphans ",
-    }
-  - { alias: "dprune", command: "docker image prune" }
-  - { alias: "dprunesys", command: "docker system prune --all" }
-  - {
-      alias: "bashreload",
-      command: "source ~/.bashrc && echo Bash config reloaded;",
-    }
-  - {
-      alias: "ctop",
-      command: "docker run --name ctop  -it --rm -v /var/run/docker.sock:/var/run/docker.sock http://quay.io/vektorlab/ctop ",
-    }
-  - {
-      alias: "sshclear",
-      command: "rm ~/.ssh/multiplex/* -f && echo SSH connection cache cleared;",
-    }
-  - {
-      alias: "sshlist",
-      command: "echo Currently open ssh connections && echo && l ~/.ssh/multiplex/",
-    }
-  - {
-      alias: "dfclean",
-      command: "df -h -x tmpfs -x zfs -t fuse.mergerfs -t xfs -t ext4",
-    }
-  - {
-      alias: "dfzfs",
-      command: "df -h -x tmpfs -t fuse.mergerfs -t xfs -t ext4 -t zfs",
-    }
+  - alias: c
+    command: clear
+  - alias: e
+    command: exit
 
 # weareinteractive.environment
 environment_config: { "PUID": "{{ main_gid }}", "PGID": "{{ main_gid }}" }
@@ -55,7 +25,7 @@ security_ssh_usedns: "no"
 security_autoupdate_enabled: true
 security_fail2ban_enabled: true
 security_sudoers_passwordless:
-  - derrickhodges
+  - hodgesd
 
 # geerlingguy.docker
 docker_compose_version: 1.29.2
@@ -72,4 +42,4 @@ global_env_vars:
   - "TZ={{ ntp_timezone }}"
 docker_compose_generator_uid: "{{ main_uid }}"
 docker_compose_generator_gid: "{{ main_gid }}"
-docker_compose_generator_output_path: /Users/derrickhodges/config
+docker_compose_generator_output_path: /Users/hodgesd/config
