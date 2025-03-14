@@ -21,47 +21,51 @@ def extract_text_from_pdf(pdf_path):
             text += page.extract_text()
     return text
 
+
 def parse_bill_data(text):
     data = {
         "total_usage": None,
         "total_generation": None,
         "net_usage": None,
-        "electric_bill": 0.0
+        "electric_bill": 0.0,
+        "electric_supply": 0.0,
+        "electric_delivery": 0.0
     }
 
-    usage_match = re.search(r"Total\s+kWh\s+([-+]?\d+(?:\.\d+)?)", text)
-    if usage_match:
-        data["total_usage"] = float(usage_match.group(1))
+    # Improved matching expressions
+    total_usage_match = re.search(r"Summary\s+Total kWh\s+(\d{1,5}(?:\.\d+)?)", text)
+    if total_usage_match:
+        data["total_usage"] = float(total_usage_match.group(1))
 
-    gen_match = re.search(r"On-Site Excess Gen kWh\s+([-+]?\d+(?:\.\d+)?)", text)
-    if gen_match:
-        data["total_generation"] = float(gen_match.group(1))
+    total_generation_match = re.search(r"kWh Out\s+\d+\s+(\d{1,5}(?:\.\d+)?)", text)
+    if total_generation_match:
+        data["total_generation"] = float(total_generation_match.group(1))
 
-    net_usage_match = re.search(r"Delivery Net Total kWh\s+([-+]?\d+(?:\.\d+)?)", text)
+    net_usage_match = re.search(r"Delivery Net Total kWh\s+(-?\d{1,5}(?:\.\d+)?)", text)
     if net_usage_match:
         data["net_usage"] = float(net_usage_match.group(1))
 
-    # Compute electric bill excluding mandatory fees lines like Customer/Meter Charge
-    total_charge = 0.0
-    for line in text.splitlines():
-        m = re.search(r"\$([-+]?\d+(?:\.\d+)?)", line)
-        if m:
-            charge_value = float(m.group(1))
-            # skip mandatory fees
-            if re.search(r"(Customer Charge|Meter Charge)", line, re.IGNORECASE):
-                continue
-            total_charge += charge_value
-    data["electric_bill"] = total_charge
+    # Capturing clearly labeled electric charges
+    supply_match = re.search(r"Electric Supply[^\$]+\$\s?([\d,.]+)", text)
+    delivery_match = re.search(r"Electric Delivery\s*\$(\s?[\d,.]+)", text)
+    if supply_match:
+        data['electric_supply'] = float(supply_match.group(1).replace(',', ''))
+
+    if delivery_match:
+        data['electric_delivery'] = float(delivery_match.group(1).replace(',', ''))
+
+    data["electric_bill"] = data["electric_supply"] + data["electric_delivery"]
 
     return data
-
 def extract_date_from_filename(filename):
-    m = re.search(r"(20\d{4})", filename)
+    m = re.search(r"(\d{6})", filename)
     if m:
         return m.group(1)
     return "Unknown"
 
 def main():
+
+    pd.set_option('display.max_columns', None)
     directory = "/Users/hodgesd/Documents/Bill Statements/Ameren"  # Change to your actual PDF directory
     pdf_files = glob.glob(os.path.join(directory, "*2025*.pdf"))
 
