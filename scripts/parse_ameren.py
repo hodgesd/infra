@@ -64,6 +64,7 @@ def extract_date_from_filename(filename):
     return "Unknown"
 
 
+
 def main():
     pd.set_option('display.max_columns', None)
     directory = "/Users/hodgesd/Documents/Bill Statements/Ameren"  # Change to your actual PDF directory
@@ -86,14 +87,27 @@ def main():
     except Exception:
         df['date_dt'] = df['date']
 
+    # Format the date for display as yyyy-mm
+    df['formatted_date'] = df['date_dt'].dt.strftime('%Y-%m')
+
     # Plot as a bar chart
     fig, ax = plt.subplots()
-    bars = ax.bar(df['date_dt'], df['net_usage'], color='tab:blue', label='Net Usage')
+    bars = ax.bar(df['formatted_date'], df['net_usage'], color='tab:blue', label='Net Usage',
+                  width=0.6)  # Adjusted bar width
 
-    # Add total electric bill as labels on top of each bar
+    # Add total electric bill as labels on top (or bottom for negative bars)
     for bar, label in zip(bars, df['electric_bill']):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f'${label:.2f}',
-                ha='center', va='bottom', fontsize=10, color='black')
+        height = bar.get_height()
+        # Adjust label position for negative bars
+        if height < 0:
+            ax.text(bar.get_x() + bar.get_width() / 2, height - 5,  # Position below negative bar
+                    f'${label:.2f}', ha='center', va='top', fontsize=10, color='black')
+        else:
+            ax.text(bar.get_x() + bar.get_width() / 2, height + 5,  # Position above positive bar
+                    f'${label:.2f}', ha='center', va='bottom', fontsize=10, color='black')
+
+    # Add a horizontal dotted line at "Net Usage = 0"
+    ax.axhline(0, color='gray', linestyle='dotted', linewidth=1)
 
     # Add labels and title
     ax.set_xlabel("Statement Date")
@@ -101,10 +115,11 @@ def main():
     ax.set_title("Net Usage with Total Electric Bill")
     ax.tick_params(axis='y', labelcolor='tab:blue')
 
-    # Rotate x-axis ticks for better readability
-    plt.xticks(rotation=45)
+    # Set one tick per statement
+    ax.set_xticks(range(len(df['formatted_date'])))
+    ax.set_xticklabels(df['formatted_date'], rotation=45)  # Rotate for better readability
 
-    # Show the plot
+    # Ensure the layout fits well
     plt.tight_layout()
     plt.show()
 
