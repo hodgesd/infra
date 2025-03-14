@@ -57,48 +57,67 @@ def parse_bill_data(text):
     data["electric_bill"] = data["electric_supply"] + data["electric_delivery"]
 
     return data
-def extract_date_from_filename(filename):
-    m = re.search(r"(\d{6})", filename)
-    if m:
-        return m.group(1)
-    return "Unknown"
 
+
+def extract_date_from_filename(filename):
+    """Extracts the yyyydd date part from the filename."""
+    match = re.search(r'statement-(\d{6})\.pdf', filename)
+    if match:
+        return match.group(1)  # Return the matched 'yyyydd' part
+    raise ValueError(f"Invalid filename format: {filename}")
 
 
 def main():
     pd.set_option('display.max_columns', None)
+    # Specify the directory containing the PDF files
     directory = "/Users/hodgesd/Documents/Bill Statements/Ameren"  # Change to your actual PDF directory
-    pdf_files = glob.glob(os.path.join(directory, "*2025*.pdf"))
+
+    # Adjust the glob pattern to match the file format 'statement-yyyymm.pdf'
+    pdf_files = glob.glob(os.path.join(directory, "statement-*.pdf"))
+
     records = []
     for pdf_path in pdf_files:
+        # Extract text from the PDF
         text = extract_text_from_pdf(pdf_path)
+
+        # Parse the bill data and extract the date
         parsed = parse_bill_data(text)
         bill_date = extract_date_from_filename(os.path.basename(pdf_path))
-        parsed = {"date": bill_date, **parse_bill_data(text)}
+
+        # Combine the date with the parsed data
+        parsed = {"date": bill_date, **parsed}
         records.append(parsed)
         print(f"Parsed {pdf_path}: {parsed}")
+
+    # Create a DataFrame from the records
     df = pd.DataFrame(records)
     print("\nExtracted Data:")
     print(df)
 
-    # Convert date column to datetime format
+    # Convert to datetime and sort chronologically
     try:
-        df['date_dt'] = pd.to_datetime(df['date'], format="%Y%m")
-    except Exception:
-        df['date_dt'] = df['date']
+        df['date_dt'] = pd.to_datetime(df['date'], format="%Y%m")  # Use "%Y%m" for `yyyymm`
+    except Exception as e:
+        print(f"Date conversion failed: {e}")
+        df['date_dt'] = pd.NaT  # Assign NaT for invalid dates
 
-    # Format the date for display as yyyy-mm
+    # Format the date for display as 'yyyy-mm'
     df['formatted_date'] = df['date_dt'].dt.strftime('%Y-%m')
+
+    # Sort by chronological order
+    df = df.sort_values(by='date_dt')
+
+    # Debugging: Ensure chronological order
+    print("Sorted DataFrame:")
+    print(df[['date', 'date_dt', 'formatted_date']])
 
     # Plot as a bar chart
     fig, ax = plt.subplots()
-    bars = ax.bar(df['formatted_date'], df['net_usage'], color='tab:blue', label='Net Usage',
-                  width=0.6)  # Adjusted bar width
+    bars = ax.bar(df['formatted_date'], df['net_usage'], color='tab:blue', label='Net Usage', width=0.6)
 
     # Add total electric bill as labels on top (or bottom for negative bars)
     for bar, label in zip(bars, df['electric_bill']):
         height = bar.get_height()
-        # Adjust label position for negative bars
         if height < 0:
             ax.text(bar.get_x() + bar.get_width() / 2, height - 5,  # Position below negative bar
                     f'${label:.2f}', ha='center', va='top', fontsize=10, color='black')
@@ -113,16 +132,10 @@ def main():
     ax.set_xlabel("Statement Date")
     ax.set_ylabel("Net Usage (kWh)", color='tab:blue')
     ax.set_title("Net Usage with Total Electric Bill")
-    ax.tick_params(axis='y', labelcolor='tab:blue')
-
-    # Set one tick per statement
-    ax.set_xticks(range(len(df['formatted_date'])))
-    ax.set_xticklabels(df['formatted_date'], rotation=45)  # Rotate for better readability
+    ax.tick_params(axis='x', rotation=45)
 
     # Ensure the layout fits well
     plt.tight_layout()
     plt.show()
-
-
 if __name__ == "__main__":
     main()
