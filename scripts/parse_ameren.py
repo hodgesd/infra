@@ -63,12 +63,11 @@ def extract_date_from_filename(filename):
         return m.group(1)
     return "Unknown"
 
-def main():
 
+def main():
     pd.set_option('display.max_columns', None)
     directory = "/Users/hodgesd/Documents/Bill Statements/Ameren"  # Change to your actual PDF directory
     pdf_files = glob.glob(os.path.join(directory, "*2025*.pdf"))
-
     records = []
     for pdf_path in pdf_files:
         text = extract_text_from_pdf(pdf_path)
@@ -77,31 +76,38 @@ def main():
         parsed = {"date": bill_date, **parse_bill_data(text)}
         records.append(parsed)
         print(f"Parsed {pdf_path}: {parsed}")
-
     df = pd.DataFrame(records)
     print("\nExtracted Data:")
     print(df)
 
-    # Plot
+    # Convert date column to datetime format
     try:
         df['date_dt'] = pd.to_datetime(df['date'], format="%Y%m")
     except Exception:
         df['date_dt'] = df['date']
 
-    fig, ax1 = plt.subplots()
-    ax1.set_xlabel("Statement Date")
-    ax1.set_ylabel("Net Usage (kWh)", color='tab:blue')
-    ax1.plot(df['date_dt'], df['net_usage'], marker='o', linestyle='-', color='tab:blue', label='Net Usage')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    # Plot as a bar chart
+    fig, ax = plt.subplots()
+    bars = ax.bar(df['date_dt'], df['net_usage'], color='tab:blue', label='Net Usage')
 
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Electric Bill ($)', color='tab:red')
-    ax2.plot(df['date_dt'], df['electric_bill'], marker='s', linestyle='--', color='tab:red', label="Electric Bill")
-    ax2.tick_params(axis='y', labelcolor='tab:red')
+    # Add total electric bill as labels on top of each bar
+    for bar, label in zip(bars, df['electric_bill']):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f'${label:.2f}',
+                ha='center', va='bottom', fontsize=10, color='black')
 
-    plt.title("Net Usage and Electric Bill Over Time")
-    fig.tight_layout()
+    # Add labels and title
+    ax.set_xlabel("Statement Date")
+    ax.set_ylabel("Net Usage (kWh)", color='tab:blue')
+    ax.set_title("Net Usage with Total Electric Bill")
+    ax.tick_params(axis='y', labelcolor='tab:blue')
+
+    # Rotate x-axis ticks for better readability
+    plt.xticks(rotation=45)
+
+    # Show the plot
+    plt.tight_layout()
     plt.show()
+
 
 if __name__ == "__main__":
     main()
